@@ -7,7 +7,7 @@ Empty fields and inconsistent commas/quoting
 Potential line ending or encoding problems
 -----------------------------------------------------------------------------------
 
--- Drop if exists
+-- Drop if exists 
 IF OBJECT_ID('tempdb..#VesselsStaging') IS NOT NULL DROP TABLE #VesselsStaging;
 
 CREATE TABLE #VesselsStaging (

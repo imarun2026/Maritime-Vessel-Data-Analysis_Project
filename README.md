@@ -36,6 +36,7 @@ SQL-T-SQL – Data cleaning & ingestion
 SQL  – Advanced querying, aggregation, time-series, and pivoting
 Data cleaning for erroneous values
 Relational database design
+SSIS - Integration Task
 
 -- 2. Vessels built per year (Time-series)
 SELECT 

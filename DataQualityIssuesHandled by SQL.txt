@@ -1,0 +1,123 @@
+The main issues causing SQL upload errors are:
+---------------------------------------------
+BOM (invisible character at start)
+Mixed data types (numbers with empty values, ... placeholders, decimals)
+Date formats (DD/MM/YYYY — SQL Server prefers YYYY-MM-DD or unambiguous formats)
+Empty fields and inconsistent commas/quoting
+Potential line ending or encoding problems
+-----------------------------------------------------------------------------------
+
+-- Drop if exists
+IF OBJECT_ID('tempdb..#VesselsStaging') IS NOT NULL DROP TABLE #VesselsStaging;
+
+CREATE TABLE #VesselsStaging (
+    VesselId          VARCHAR(50),
+    VesselTypeCode    VARCHAR(50),
+    Dwt               VARCHAR(50),
+    GT                VARCHAR(50),
+    LOA_m             VARCHAR(50),
+    Draft_m           VARCHAR(50),
+    TEU               VARCHAR(50),
+    FlagCode          VARCHAR(50),
+    BuiltDate         VARCHAR(50),
+    [Status]          VARCHAR(100),
+    OwnerId           VARCHAR(50),
+    BuilderId         VARCHAR(50),
+    Builder           VARCHAR(200),
+    BuilderCountry    VARCHAR(100),
+    ContractDate      VARCHAR(50),
+    DemolitionDate    VARCHAR(50),
+    RawLine           VARCHAR(MAX)  --To capture the bad data
+);
+--Import csv
+BULK INSERT #VesselsStaging
+FROM 'C:\Users\user\Downloads\dataassessmentforclarksonsresearch\Vessels.csv')
+WITH (
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '\n',
+    FIRSTROW = 2,                    -- Skip header
+    CODEPAGE = '65001',              -- UTF-8 to hgandle BOM
+    DATAFILETYPE = 'char',
+    KEEPNULLS,
+    MAXERRORS = 100 --if any bad data comes till 100 rows copied, if Maxerror not set then it got fail
+);
+
+--TRUNCATE TABLE #VesselsStaging
+
+-- Create Clean Target Table
+IF OBJECT_ID('dbo.VesselsClean') IS NOT NULL DROP TABLE dbo.VesselsClean;
+
+CREATE TABLE dbo.VesselsClean (
+    VesselId         INT,
+    VesselTypeCode   INT,
+    Dwt              DECIMAL(18,2),
+    GT               DECIMAL(18,2),
+    LOA_m            DECIMAL(18,4),
+    Draft_m          DECIMAL(18,4),
+    TEU              INT,
+    FlagCode         VARCHAR(50),
+    BuiltDate        DATE,
+    [Status]         VARCHAR(100),
+    OwnerId          INT,
+    BuilderId        INT,
+    Builder          VARCHAR(200),
+    BuilderCountry   VARCHAR(100),
+    ContractDate     DATE,
+    DemolitionDate   DATE,
+    LoadDate         DATETIME DEFAULT GETDATE()
+);
+
+-- Insert Cleaned Data
+INSERT INTO dbo.VesselsClean (
+    VesselId, VesselTypeCode, Dwt, GT, LOA_m, Draft_m, TEU, FlagCode,
+    BuiltDate, [Status], OwnerId, BuilderId, Builder, BuilderCountry,
+    ContractDate, DemolitionDate
+)
+SELECT 
+    TRY_CAST(VesselId AS INT) AS VesselId,
+    TRY_CAST(VesselTypeCode AS INT) AS VesselTypeCode,
+    
+    -- Numeric cleaning: remove non-digits except decimal point
+    TRY_CAST(REPLACE(REPLACE(Dwt, ',', ''), ' ', '') AS DECIMAL(18,2)) AS Dwt,
+    TRY_CAST(REPLACE(REPLACE(GT, ',', ''), ' ', '') AS DECIMAL(18,2)) AS GT,
+    TRY_CAST(REPLACE(REPLACE(LOA_m, ',', ''), ' ', '') AS DECIMAL(18,4)) AS LOA_m,
+    TRY_CAST(REPLACE(REPLACE(Draft_m, ',', ''), ' ', '') AS DECIMAL(18,4)) AS Draft_m,
+    TRY_CAST(REPLACE(REPLACE(TEU, ',', ''), ' ', '') AS INT) AS TEU,
+    
+    TRIM(FlagCode) AS FlagCode,
+    
+    -- Date cleaning: DD/MM/YYYY → DATE
+    TRY_CONVERT(DATE, BuiltDate, 103) AS BuiltDate,        -- 103 = British/French dd/mm/yyyy
+    TRIM([Status]) AS [Status],
+    
+    TRY_CAST(OwnerId AS INT) AS OwnerId,
+    TRY_CAST(BuilderId AS INT) AS BuilderId,
+    
+    TRIM(Builder) AS Builder,
+    TRIM(BuilderCountry) AS BuilderCountry,
+    
+    TRY_CONVERT(DATE, ContractDate, 103) AS ContractDate,
+    TRY_CONVERT(DATE, DemolitionDate, 103) AS DemolitionDate
+FROM #VesselsStaging
+WHERE VesselId IS NOT NULL --filter null 
+  AND TRY_CAST(VesselId AS INT) IS NOT NULL;   -- Filter bad rows
+-------------------------------------------------------------------------------------
+
+--validation of the data
+
+
+-- View rows that failed cleaning
+SELECT TOP 100 *
+FROM #VesselsStaging
+WHERE TRY_CAST(VesselId AS INT) IS NULL 
+   OR BuiltDate LIKE '%...%' 
+   OR Dwt LIKE '%[^0-9.,]%';
+
+-- Summary
+SELECT 
+    COUNT(*) AS TotalRows,
+    COUNT(CASE WHEN BuiltDate IS NOT NULL THEN 1 END) AS ValidBuiltDates,
+    COUNT(CASE WHEN Dwt IS NOT NULL THEN 1 END) AS ValidDwt
+FROM dbo.VesselsClean;
+
+

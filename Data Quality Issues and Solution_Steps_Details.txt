@@ -1,0 +1,11 @@
+DATA QUALITY ISSUES IDENTIFIED AND RESOLVED
+
+During import of the provided CSV files, I identified four data quality issues:
+
+1. Date Format Mismatch — Dates in Vessels.csv were stored as dd/MM/yyyy. SQL Server requires yyyy-MM-dd. I normalised all three date columns (BuiltDate, ContractDate, DemolitionDate) during pre-processing and saved the corrected file as Vessels_clean.csv. TRY_CAST is also applied in the SQL pipeline as an additional safety
+
+2. Embedded Comma in BuilderCountry — Rows 3259 and 3260 contained the value "Korea, South", where the comma inside the quoted field caused the CSV parser to split it into two columns. This shifted subsequent columns out of position. The affected rows were corrected during pre-processing, and FORMAT = 'CSV' was added to all BULK INSERT statements to handle RFC-4180 quoted fields.
+
+3. UTF-8 BOM Character — The file contained a Byte Order Mark (BOM) at the start, which can corrupt the first column header on import. This was handled using CODEPAGE = '65001' in the BULK INSERT statement.
+
+4. VesselTypes: Quoted Field with Embedded Comma — The VesselType value "Oil, Roll-on/Roll-off & Forest" contained a comma inside quotes. FORMAT = 'CSV' was applied to resolve this.

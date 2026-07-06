@@ -1,6 +1,6 @@
 ﻿/* =============================================================================
-   CLARKSONS RESEARCH – DATA ENGINEER SQL Task
-   Database: ClarksonsDB
+
+   
    Author  : Arun Kumar
    =============================================================================*/
    /*=======================Error Details============================*/
@@ -24,8 +24,7 @@
 --Then migrated into final table
  /*============================================================*/
 
--- USE ClarksonsDB;
---GO
+
 
 --IF DATABASE NOT EXIST THEN DROP
 IF DB_ID('ClarksonsDB') IS NOT NULL
